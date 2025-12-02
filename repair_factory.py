@@ -23,8 +23,22 @@ import mutils
 import energies
 import configs
 import optimizers
+from pathlib import Path
 
 def main(config):
+    # Fill reasonable defaults if missing in the YAML
+    config.setdefault('lap', 'cotan')
+    config.setdefault('timing', False)
+    config.setdefault('constraints', [])
+    config.setdefault('savepath', './results')
+    config.setdefault('optimizer', 'MomentumBrake')
+    config.setdefault('lr', 1e-3)
+    config.setdefault('max_collisions', 8)
+    config.setdefault('energy', 'signed_TPE_verts')
+    if 'expname' not in config:
+        config['expname'] = Path(config['objpath']).stem
+    os.makedirs(config['savepath'], exist_ok=True)
+
     np_v, np_f = pp3d.read_mesh(config['objpath'])
     v_range = np_v.max() - np_v.min()
     np_v = 16.5 * np_v / v_range
@@ -73,6 +87,9 @@ def main(config):
         triangles = vertices[faces]
         collision_idxs = search_tree(triangles.unsqueeze(0)).squeeze(0)
         collision_idxs = collision_idxs[collision_idxs[:, 0] >= 0, :]
+        best_col = collision_idxs.shape[0]
+        best_vertices = vertices.detach().clone()
+        best_iter = 0
 
 
     if config['timing']:
@@ -84,14 +101,17 @@ def main(config):
 
         if config['energy'] == 'signed_TPE':
             pen_loss = energies.signed_TPE(vertices, faces, search_tree, p=3)
+            num_col = -1  # not returned; will recompute below
         elif config['energy'] == 'signed_TPE_verts':
-            pen_loss = energies.signed_TPE_verts(vertices, faces, search_tree)
+            pen_loss, num_col = energies.signed_TPE_verts(vertices, faces, search_tree, return_col=True)
         elif config['energy'] == 'TPE':
-            pen_loss = energies.TPE(vertices, faces, search_tree)
+            pen_loss, num_col = energies.TPE(vertices, faces, search_tree, return_col=True)
         elif config['energy'] == 'p2plane':
             pen_loss = energies.p2plane(vertices, faces, search_tree)
+            num_col = -1
         elif config['energy'] == 'conical':
             pen_loss = energies.conical(vertices, faces, search_tree)
+            num_col = -1
         else:
             raise NotImplementedError('Not implemented energy')
 
@@ -108,6 +128,12 @@ def main(config):
         optimizer.step()
         
         with torch.no_grad():
+            if num_col < 0:
+                # Compute collision count if the energy did not already return it
+                triangles = vertices[faces]
+                collision_idxs = search_tree(triangles.unsqueeze(0)).squeeze(0)
+                collision_idxs = collision_idxs[collision_idxs[:, 0] >= 0, :]
+                num_col = collision_idxs.shape[0]
             if num_col < best_col:
                 best_col = num_col
                 best_vertices = vertices.detach().clone()
@@ -119,11 +145,11 @@ def main(config):
                 pp3d.write_mesh(vertices.detach().cpu().numpy(), np_f, f'{config["savepath"]}/{config["expname"]}_{(i+1):03d}.obj')
 
     if q is not None:
-        pp3d.write_mesh(best_vertices.cpu().numpy(), q, f'{config["savepath"]}/{fname}_best.obj')
-        pp3d.write_mesh(vertices.detach().cpu().numpy(), q, f'{config["savepath"]}/{fname}_final.obj')
+        pp3d.write_mesh(best_vertices.cpu().numpy(), q, f'{config["savepath"]}/{config["expname"]}_best.obj')
+        pp3d.write_mesh(vertices.detach().cpu().numpy(), q, f'{config["savepath"]}/{config["expname"]}_final.obj')
     else:
-        pp3d.write_mesh(best_vertices.cpu().numpy(), np_f, f'{config["savepath"]}/{fname}_best.obj')
-        pp3d.write_mesh(vertices.detach().cpu().numpy(), np_f, f'{config["savepath"]}/{fname}_final.obj')
+        pp3d.write_mesh(best_vertices.cpu().numpy(), np_f, f'{config["savepath"]}/{config["expname"]}_best.obj')
+        pp3d.write_mesh(vertices.detach().cpu().numpy(), np_f, f'{config["savepath"]}/{config["expname"]}_final.obj')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

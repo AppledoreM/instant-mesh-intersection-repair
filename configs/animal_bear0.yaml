@@ -1,0 +1,13 @@
+expname: bear0
+objpath: ./data/animal/bear0.obj
+optimizer: MomentumBrake
+lr: 0.001
+savepath: ./results/animal
+max_collisions: 16
+energy: signed_TPE_verts
+lap: cotan
+constraints:
+  - curvature
+  - area
+  - volume
+timing: false

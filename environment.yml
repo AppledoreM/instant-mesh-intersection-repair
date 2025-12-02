@@ -1,0 +1,19 @@
+name: instant-3d
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - pyyaml
+  - matplotlib
+  - pillow
+  - cmake           # needed by some pip wheels during build
+  - ninja           # faster builds for compiled extensions
+  - pip:
+      - potpourri3d>=0.0.7
+      - cholespy>=0.3.4
+      # Install PyTorch separately after activation so it can match local CUDA:
+      # pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu130
