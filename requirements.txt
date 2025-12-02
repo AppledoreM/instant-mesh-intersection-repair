@@ -1,0 +1,11 @@
+# Core Python deps for instant-3d (install torch separately to match your CUDA)
+numpy>=1.23
+scipy>=1.10
+PyYAML>=6.0
+matplotlib>=3.7
+Pillow>=9.0
+potpourri3d>=0.0.7
+cholespy>=0.3.4
+
+# Install PyTorch matching your CUDA (example for CUDA 13 nightly):
+#   pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu130
